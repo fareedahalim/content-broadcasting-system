@@ -1,0 +1,321 @@
+CONTENT BROADCASTING SYSTEM
+ARCHITECTURE NOTES
+
+
+1. Authentication and Authorization (JWT + RBAC)
+
+The system uses JWT-based authentication.
+
+Users log in using email and password.
+Passwords are hashed using bcrypt.
+
+After successful login, a JWT token is issued
+containing:
+
+- user id
+- user role
+
+Protected routes use authentication middleware
+to verify the token.
+
+Role-based authorization is enforced using
+role middleware.
+
+Roles are separated as:
+
+Teacher:
+- Upload content
+- View own content
+
+Principal:
+- View pending content
+- View all uploaded content
+- Approve content
+- Reject content
+
+Only principals can approve or reject content.
+
+
+--------------------------------------------------
+
+
+2. Subject-Based Content Design
+
+Each content item belongs to a subject
+such as:
+
+- Maths
+- Science
+
+Subject is stored in the contents table.
+
+The public API supports subject filtering:
+
+/content/live/:teacherId?subject=Maths
+
+This ensures each subject has an independent
+broadcast rotation.
+
+Maths content rotates only with other Maths
+content.
+
+Science content rotates independently.
+
+
+--------------------------------------------------
+
+
+3. Upload Handling Design
+
+File upload is handled using Multer.
+
+Supported formats:
+
+- JPG
+- PNG
+- GIF
+
+Maximum size:
+
+- 10MB
+
+Files are stored in local uploads folder.
+
+Validation checks include:
+
+- title required
+- subject required
+- file required
+- file type validation
+- file size validation
+
+Overlap validation prevents conflicting
+schedules for the same teacher and subject.
+
+
+--------------------------------------------------
+
+
+4. Approval Workflow Design
+
+Content lifecycle:
+
+uploaded -> pending -> approved/rejected
+
+After upload, content is stored in pending
+state.
+
+Principal reviews pending content.
+
+Approve:
+- status updated to approved
+- approved_by stored
+- approved_at stored
+
+Reject:
+- status updated to rejected
+- rejection_reason stored
+
+Duplicate approvals are prevented by allowing
+approval only when status is pending.
+
+Only approved content is eligible for
+broadcasting.
+
+
+--------------------------------------------------
+
+
+5. Scheduling and Rotation Logic
+
+Broadcast scheduling uses cyclic rotation.
+
+Each content item has:
+
+- rotation_order
+- duration_minutes
+
+Example:
+
+Content A 5 mins
+Content B 5 mins
+Content C 5 mins
+
+Total cycle = 15 minutes
+
+Active content is determined using:
+
+elapsed_time % total_cycle
+
+The system uses current time to calculate
+which content is active.
+
+Rotation loops continuously.
+
+Only content inside:
+
+start_time <= current_time <= end_time
+
+is considered active.
+
+Earliest active start time is used as cycle
+anchor for stable rotation.
+
+Each subject has its own independent
+rotation cycle.
+
+
+--------------------------------------------------
+
+
+6. Database Design Decisions
+
+Main tables:
+
+users
+- principals and teachers
+
+contents
+- uploaded content
+- approval state
+- scheduling window
+
+content_schedules
+- rotation metadata
+
+Relationships:
+
+contents.uploaded_by -> users.id
+
+contents.approved_by -> users.id
+
+content_schedules.content_id
+-> contents.id
+
+Foreign keys are used to maintain integrity.
+
+
+--------------------------------------------------
+
+
+7. Folder Structure Design
+
+Project uses layered structure.
+
+controllers/
+Request and response handling
+
+services/
+Business logic such as scheduling
+
+middlewares/
+Authentication and RBAC
+
+routes/
+API endpoints
+
+config/
+Database and upload configuration
+
+This separation improves maintainability.
+
+
+--------------------------------------------------
+
+
+8. Middleware Usage
+
+Authentication middleware:
+Verifies JWT token.
+
+Role middleware:
+Restricts access by role.
+
+Upload middleware:
+Validates files.
+
+Middleware keeps controllers cleaner and
+separates concerns.
+
+
+--------------------------------------------------
+
+
+9. Transactions and Consistency
+
+Content upload uses database transaction:
+
+BEGIN
+INSERT content
+INSERT schedule
+COMMIT
+
+If any step fails:
+
+ROLLBACK
+
+This prevents partial or inconsistent data.
+
+
+--------------------------------------------------
+
+
+10. Edge Case Handling
+
+Handled cases:
+
+- No approved content:
+returns empty response
+
+- Approved but outside active time:
+returns empty response
+
+- Invalid subject:
+returns empty response
+
+- Invalid teacher:
+returns empty response
+
+- Overlapping schedules:
+upload rejected
+
+- Duplicate approval:
+blocked
+
+
+--------------------------------------------------
+
+
+11. Security
+
+Private routes require JWT.
+
+Role checks prevent unauthorized access.
+
+Sensitive data such as password hashes
+are not exposed in API responses.
+
+Validation and error handling are included.
+
+
+--------------------------------------------------
+
+
+12. Scalability Considerations
+
+Future improvements:
+
+- Redis caching for /content/live API
+
+- Database indexes on:
+status
+subject
+uploaded_by
+
+- Queue-based notifications
+for approval events
+
+- S3-based file storage
+
+Current design allows these improvements
+without major restructuring.
