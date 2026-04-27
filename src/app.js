@@ -1,6 +1,8 @@
 const express = require('express');
-
 require('dotenv').config();
+
+const db = require('./config/db'); // add this
+
 const authRoutes = require('./routes/authRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 
@@ -8,17 +10,24 @@ const app = express();
 
 app.use(express.json());
 
-const port = process.env.PORT;
+const port = process.env.PORT || 5000;
 
 
-app.use('/auth', authRoutes);
-
-app.use('/content', contentRoutes);
-
-app.get('/', (req, res) => {
-    res.send('API Running')
+db.connect()
+.then(()=>{
+   console.log("Database connected");
+})
+.catch(err=>{
+   console.error("DB ERROR:", err);
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+app.use('/auth', authRoutes);
+app.use('/content', contentRoutes);
+
+app.get('/', (req,res)=>{
+   res.send('API Running');
+});
+
+app.listen(port,()=>{
+   console.log(`Server running on port ${port}`);
 });
