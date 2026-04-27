@@ -13,13 +13,9 @@ app.use(express.json());
 const port = process.env.PORT || 5000;
 
 
-db.connect()
-.then(()=>{
-   console.log("Database connected");
-})
-.catch(err=>{
-   console.error("DB ERROR:", err);
-});
+db.query('SELECT NOW()')
+  .then(() => console.log("Database connected"))
+  .catch(err => console.error("DB ERROR:", err));
 
 app.use('/auth', authRoutes);
 app.use('/content', contentRoutes);
