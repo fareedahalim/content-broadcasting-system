@@ -51,9 +51,9 @@ Multer
 
 Clone project
 
-git clone YOUR_GITHUB_LINK
+git clone - (https://github.com/fareedahalim/content-broadcasting-system)
 
-cd broadcasting-system
+cd content_broadcasting_system
 
 
 Install packages
